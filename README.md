@@ -1,6 +1,7 @@
 # Petr
 HackUCI 2022: Petr
 
+
 PLAN:
 
 Step 1: Ask them for their major
