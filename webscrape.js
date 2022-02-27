@@ -12,7 +12,7 @@ app.get('/', function (req, res) {
 
 app.get('/prereqs', function (req, res) {
     const boo = async function getAllClassInfo() {
-        const requiredClasses = await getMajorRequirements("BUSINESS ADMINISTRATION");
+        const requiredClasses = await getMajorRequirements("BUSINESS ADMINISTRATION")["classes"];
         res.json(requiredClasses);
     }
     boo();
@@ -28,8 +28,8 @@ app.get('/ge-classes', function (req, res) {
 
 function removeExtendedChars(str) {
     for (let i = 0; i < str.length; i++) {
-        if (str.charCharAt(i) > 127) {
-            return i;
+        if (str.charCodeAt(i) > 127) {
+            return str.slice(0, i) + str.slice(i+1);
         }
     }
     return -1;
@@ -70,12 +70,12 @@ async function getMajorRequirements(major){
 
         $('#requirementstextcontainer .codecol a', html).each( function() {
             let title = $(this).attr('title');
-            title = title.
+            title = removeExtendedChars(title);
             classIDs.add( title );
             
         });
 
-        return [{classes: Array.from(classIDs) }];
+        return {classes: Array.from(classIDs) };
 
     } catch(err) {
         console.log(err);
@@ -108,14 +108,12 @@ async function getGEClasses(ge){
     return schedule;
 }
 
-async function getPrereqs(classID){
+async function getPrereqTree(classID){
     const petrURL = "https://api.peterportal.org/graphql";
     const query = `
         query{
             course("${classID}) {
-                prerequisite_list{
-                        id
-                }
+                prerequisite_tree
             }
         }
         `
@@ -128,9 +126,14 @@ async function getPrereqs(classID){
     
     const response = await fetch(petrURL, options);
     const data = await response.json();
-    const courseInfo = data['data']['course'];
+    const prereqTree = data['data'];
 
-    return courseInfo;
+    return prereqTree;
+}
+
+function getAllPrereqTrees(major){
+    const requiredClasses = await getMajorRequirements(major)["classes"];
+
 }
 
 
