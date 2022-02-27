@@ -16,8 +16,7 @@ app.get('/prereqs', async function (req, res) {
     const majorClasses = await getMajorRequirements("COMPUTER SCIENCE");
     const trees = await getAllPrereqTrees(majorClasses["classes"]);
     
-    console.log(majorClasses);
-    res.json(trees);
+    res.json( majorClasses);
 });
 
 app.get('/ge-classes', function (req, res) {
@@ -30,17 +29,15 @@ app.get('/ge-classes', function (req, res) {
 
 function removeExtendedChars(str) {
     let badChars = []
-    let s = str.split('\u0160').join();
-    console.log(s);
-    /* for (let i = 0; i < str.length; i++) {
+    let weirdChar = " ";
+    for (let i = 0; i < str.length; i++) {
         if (str.charCodeAt(i) > 127) {
-            console.log(i)
-            console.log(s.slice(0, i));
-            console.log(s.slice(i+1));
-            s = s.slice(0, i) + str.slice(i+1);
+            weirdChar = str.charAt(i);
+            break;
         }
-    } */
-    
+    }
+    let s = str.split(weirdChar).join('');
+
     return s;
 }
 
@@ -146,8 +143,12 @@ async function getPostAndPrereqTree(classID){
 }
 
 function listOr(courses, classesTaken) {
+    console.log(courses);
+    /* if ( !courses ){
+        return false;
+    } */
     courses.forEach( (course) => {
-        const flag = false;
+        let flag = false;
         if ( typeof(course) != "string") {
             if (Object.keys(courses)[0] == 'AND') {
                 flag = listAnd(course['AND'], classesTaken);
@@ -167,8 +168,12 @@ function listOr(courses, classesTaken) {
 }
 
 function listAnd(courses, classesTaken) {
+    console.log(courses);
+    /* if ( !courses ){
+        return false;
+    } */
     courses.forEach( (course) => {
-        const flag = false;
+        let flag = false;
         if ( typeof(course) != "string") {
             if (Object.keys(courses)[0] == 'AND') {
                 flag = listAnd(course['AND'], classesTaken);
@@ -188,7 +193,8 @@ function listAnd(courses, classesTaken) {
 }
 
 function canTake(prereqTree, classesTaken) {
-    if ( Object.keys(courses)[0] == 'AND' ){
+    prereqTree = JSON.parse(prereqTree);
+    if ( Object.keys(prereqTree)[0] == 'AND' ){
         return listAnd(prereqTree['AND'], classesTaken);
     }else {
         return listOr(prereqTree["OR"], classesTaken);
@@ -196,8 +202,37 @@ function canTake(prereqTree, classesTaken) {
 }
 
 async function classesCanTake(majorReqs, classesTaken) {
-    possibleNextClasses = new Set();
-    const trees = await getAllPrereqTrees(classesTaken);
+    try{
+        possibleNextClasses = new Set();
+        const trees = await getAllPrereqTrees(classesTaken);
+
+        trees.forEach( (nextClasses) => {
+            nextClasses["course"]["prerequisite_for"].forEach( (id) => {
+                possibleNextClasses.add(id['id']);
+            });
+        });
+
+        possibleNextClasses = Array.from(possibleNextClasses);
+        
+        const classesCanTake = new Set();
+        const dataPromises = possibleNextClasses.map( async (classID) => {
+            const data = await getPostAndPrereqTree(classID);
+            
+            return data;
+        });
+
+        const data = await Promise.all(dataPromises);
+
+        data.forEach( (course) => {
+            console.log(course['course']['id']);
+            if (canTake(course['course']['prerequisite_tree'], classesTaken)) {
+                classesCanTake.add(course['course']['id']);
+            }
+        });
+
+    } catch(err) {
+        console.log(err);
+    }
 
 }
 
