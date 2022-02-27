@@ -3,19 +3,21 @@ const fetch = require('node-fetch');
 const axios = require('axios')
 const cheerio = require('cheerio')
 const express = require('express')
-const res = require('express/lib/response')
+const res = require('express/lib/response');
+const { data } = require('cheerio/lib/api/attributes');
 const app = express()
 
 app.get('/', function (req, res) {
     res.json("Why are you here? Hrm.");
 });
 
-app.get('/prereqs', function (req, res) {
-    const boo = async function getAllClassInfo() {
-        const requiredClasses = await getMajorRequirements("BUSINESS ADMINISTRATION")["classes"];
-        res.json(requiredClasses);
-    }
-    boo();
+app.get('/prereqs', async function (req, res) {
+    const classesTaken = ['I&CSCI46', 'I&CSCI6B', 'I&CSCI6D', 'MATH2B'];
+    const majorClasses = await getMajorRequirements("COMPUTER SCIENCE");
+    const trees = await getAllPrereqTrees(majorClasses["classes"]);
+    
+    console.log(majorClasses);
+    res.json(trees);
 });
 
 app.get('/ge-classes', function (req, res) {
@@ -27,12 +29,19 @@ app.get('/ge-classes', function (req, res) {
 });
 
 function removeExtendedChars(str) {
-    for (let i = 0; i < str.length; i++) {
+    let badChars = []
+    let s = str.split('\u0160').join();
+    console.log(s);
+    /* for (let i = 0; i < str.length; i++) {
         if (str.charCodeAt(i) > 127) {
-            return str.slice(0, i) + str.slice(i+1);
+            console.log(i)
+            console.log(s.slice(0, i));
+            console.log(s.slice(i+1));
+            s = s.slice(0, i) + str.slice(i+1);
         }
-    }
-    return -1;
+    } */
+    
+    return s;
 }
 
 function constructSearchURL(search) {
@@ -57,6 +66,7 @@ async function getMajorURL(googleSearch) {
         console.log(err);
     }
 }
+
 
 async function getMajorRequirements(major){
     try {
@@ -108,12 +118,16 @@ async function getGEClasses(ge){
     return schedule;
 }
 
-async function getPrereqTree(classID){
+async function getPostAndPrereqTree(classID){
     const petrURL = "https://api.peterportal.org/graphql";
     const query = `
         query{
-            course("${classID}) {
+            course(id:"${classID}") {
+                id
                 prerequisite_tree
+                prerequisite_for{
+                    id
+                }
             }
         }
         `
@@ -126,15 +140,84 @@ async function getPrereqTree(classID){
     
     const response = await fetch(petrURL, options);
     const data = await response.json();
-    const prereqTree = data['data'];
+    const prereqInfo = data['data'];
 
-    return prereqTree;
+    return prereqInfo;
 }
 
-function getAllPrereqTrees(major){
-    const requiredClasses = await getMajorRequirements(major)["classes"];
+function listOr(courses, classesTaken) {
+    courses.forEach( (course) => {
+        const flag = false;
+        if ( typeof(course) != "string") {
+            if (Object.keys(courses)[0] == 'AND') {
+                flag = listAnd(course['AND'], classesTaken);
+            } else {
+                flag = listOr(course['OR'], classesTaken);
+            }
+
+            if (flag) {
+                return true;
+            }
+        } else if (classesTaken.indexOf(course) > 0){
+                return true;
+        }
+    });
+
+    return false;
+}
+
+function listAnd(courses, classesTaken) {
+    courses.forEach( (course) => {
+        const flag = false;
+        if ( typeof(course) != "string") {
+            if (Object.keys(courses)[0] == 'AND') {
+                flag = listAnd(course['AND'], classesTaken);
+            } else {
+                flag = listOr(course['OR'], classesTaken);
+            }
+
+            if (!flag) {
+                return false;
+            }
+        } else if (classesTaken.indexOf(course) > 0){
+            return true;
+        }
+    });
+
+    return true;
+}
+
+function canTake(prereqTree, classesTaken) {
+    if ( Object.keys(courses)[0] == 'AND' ){
+        return listAnd(prereqTree['AND'], classesTaken);
+    }else {
+        return listOr(prereqTree["OR"], classesTaken);
+    }
+}
+
+async function classesCanTake(majorReqs, classesTaken) {
+    possibleNextClasses = new Set();
+    const trees = await getAllPrereqTrees(classesTaken);
 
 }
+
+async function getAllPrereqTrees(classes){
+    try{
+        const prereqs = [];
+
+        const dataPromises = classes.map( async (classID) => {
+            const data = await getPostAndPrereqTree(classID);
+            return data;
+        });
+        const data = await Promise.all(dataPromises);
+
+        return data;
+
+    } catch(err) {
+        console.log(err);
+    }
+}
+
 
 
 app.listen(PORT);
