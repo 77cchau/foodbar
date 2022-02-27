@@ -1,19 +1,29 @@
-const PORT = 1234
+const PORT = 1234;
+const fetch = require('node-fetch');
 const axios = require('axios')
 const cheerio = require('cheerio')
 const express = require('express')
 const res = require('express/lib/response')
 const app = express()
 
-
-
 app.get('/', function (req, res) {
-    res.json("AHHHHHHHHHHHHHHHHHHHHHH");
+    res.json("Why are you here? Hrm.");
 });
 
-app.get('/results', function (req, res) {
-    getAllClassInfo();
-    res.json("HIIII");
+app.get('/major-classes', function (req, res) {
+    const boo = async function getAllClassInfo() {
+        const requiredClasses = await getMajorRequirements("BUSINESS ADMINISTRATION");
+        res.json(requiredClasses);
+    }
+    boo();
+});
+
+app.get('/ge-classes', function (req, res) {
+    const boo = async function getGEInfo(ge) {
+        const geClasses = await getGE(ge);
+        res.json(geClasses);
+    }
+    boo("GE-2");
 });
 
 function constructSearchURL(search) {
@@ -39,7 +49,7 @@ async function getMajorURL(googleSearch) {
     }
 }
 
-async function getRequirements(major){
+async function getMajorRequirements(major){
     try {
         const searchURL = constructSearchURL(major);
         const majorURL = await getMajorURL(searchURL);
@@ -62,21 +72,14 @@ async function getRequirements(major){
     }
 }
 
-async function getClassInfo(classID){
+async function getGE(ge){
+    const petrURL = "https://api.peterportal.org/graphql";
     const query = `
         query{
-            schedule(year: 2022, quarter:"Spring", department:"COMPSCI") {
+            schedule(year:2022, quarter:"Spring", ge:"${ge}") {
                 id
-                units
-                title
-                offerings{
-                status
-                section {
-                    code
-                }
-                meetings {
-                    time
-                    }
+                prerequisite_list{
+                        id
                 }
             }
         }
@@ -88,16 +91,11 @@ async function getClassInfo(classID){
         headers: {"Content-Type": "application/json"}
     }
     
-    const response = await fetch(url, options);
+    const response = await fetch(petrURL, options);
     const data = await response.json();
     const schedule = data['data']['schedule'];
+
     return schedule;
-}
-
-async function getAllClassInfo() {
-    const requiredClasses = await getRequirements("BUSINESS ADMINISTRATION");
-
-    requiredClasses.forEach(element => console.log(element));
 }
 
 
