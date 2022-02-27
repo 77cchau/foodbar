@@ -2,14 +2,14 @@ import requests
 import json
 
 
-def getClassInfo(classId):
+def getClassInfo(id):
     query = '''
     {
-        course({classId}){
+        course({id}){
             title
         }
     }
-    '''.format(classId=classId)
+    '''.format(id=id)
 
     url = 'https://api.peterportal.org/graphql/'
 
