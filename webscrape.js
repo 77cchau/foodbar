@@ -10,7 +10,7 @@ app.get('/', function (req, res) {
     res.json("Why are you here? Hrm.");
 });
 
-app.get('/major-classes', function (req, res) {
+app.get('/prereqs', function (req, res) {
     const boo = async function getAllClassInfo() {
         const requiredClasses = await getMajorRequirements("BUSINESS ADMINISTRATION");
         res.json(requiredClasses);
@@ -20,11 +20,20 @@ app.get('/major-classes', function (req, res) {
 
 app.get('/ge-classes', function (req, res) {
     const boo = async function getGEInfo(ge) {
-        const geClasses = await getGE(ge);
+        const geClasses = await getGEClasses(ge);
         res.json(geClasses);
     }
     boo("GE-2");
 });
+
+function removeExtendedChars(str) {
+    for (let i = 0; i < str.length; i++) {
+        if (str.charCharAt(i) > 127) {
+            return i;
+        }
+    }
+    return -1;
+}
 
 function constructSearchURL(search) {
     const searchURL = new URL("https://catalogue.uci.edu/search/?");
@@ -60,7 +69,8 @@ async function getMajorRequirements(major){
         const classIDs = new Set();
 
         $('#requirementstextcontainer .codecol a', html).each( function() {
-            const title = $(this).attr('title');
+            let title = $(this).attr('title');
+            title = title.
             classIDs.add( title );
             
         });
@@ -72,7 +82,7 @@ async function getMajorRequirements(major){
     }
 }
 
-async function getGE(ge){
+async function getGEClasses(ge){
     const petrURL = "https://api.peterportal.org/graphql";
     const query = `
         query{
@@ -98,6 +108,30 @@ async function getGE(ge){
     return schedule;
 }
 
+async function getPrereqs(classID){
+    const petrURL = "https://api.peterportal.org/graphql";
+    const query = `
+        query{
+            course("${classID}) {
+                prerequisite_list{
+                        id
+                }
+            }
+        }
+        `
+    
+    const options = {
+        body: JSON.stringify({query}),
+        method: "POST",
+        headers: {"Content-Type": "application/json"}
+    }
+    
+    const response = await fetch(petrURL, options);
+    const data = await response.json();
+    const courseInfo = data['data']['course'];
+
+    return courseInfo;
+}
 
 
 app.listen(PORT);
