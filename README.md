@@ -1,5 +1,5 @@
-# Petr
-HackUCI 2022: Petr
+# Postrequisite Finder for UCI Classes
+HackUCI 2022
 
 
 PLAN:
